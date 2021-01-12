@@ -74,13 +74,18 @@ if ($action === 'product-discount') {
 		$c = new Categorie($db);
 		$TCompanyCat = $c->containing($fk_company, Categorie::TYPE_CUSTOMER, 'id');
 
-		if (empty($fk_country)) {
-			$societe = new Societe($db);
-			if ($societe->fetch($fk_company) > 0) {
+		$societe = new Societe($db);
+		if ($societe->fetch($fk_company) > 0) {
+
+			if (empty($fk_country)) {
 				$fk_country = $societe->country_id;
-				$fk_c_typent = $societe->typent_id;
-				$jsonResponse->defaultCustomerReduction = $societe->remise_percent;
 			}
+
+			if (empty($fk_c_typent)) {
+				$fk_c_typent = $societe->typent_id;
+			}
+
+			$jsonResponse->defaultCustomerReduction = $societe->remise_percent;
 		}
 	}
 
@@ -150,7 +155,7 @@ if ($action === 'product-discount') {
 			if (!empty($propal)
 				&& (empty($documentDiscount) || DiscountRule::calcNetPrice($documentDiscount->subprice, $documentDiscount->remise_percent) > DiscountRule::calcNetPrice($propal->subprice, $propal->remise_percent) ))
 			{
-					$documentDiscount = $propal;
+				$documentDiscount = $propal;
 			}
 		}
 		if (!empty($conf->global->DISCOUNTRULES_SEARCH_IN_INVOICES)) {
