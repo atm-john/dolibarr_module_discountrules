@@ -84,7 +84,7 @@ class DiscountRulesSearch
 	public $result;
 
 	/**
-	 * @var DiscountRule $discount
+	 * @var DiscountRule|false $discount
 	 */
 	public $discount;
 
@@ -125,14 +125,13 @@ class DiscountRulesSearch
 		$this->launchSearchRule();
 		$this->launchSearchDocumentsDiscount();
 
-		// Search product net price
-		$productNetPrice = $this->discount->getNetPrice($this->fk_product, $this->fk_company);
 
 		$useDocumentReduction = false;
 		if (!empty($this->documentDiscount)) {
-
 			$useDocumentReduction = true;
 			if (!empty($this->discount)) {
+				// Search product net price
+				$productNetPrice = $this->discount->getNetPrice($this->fk_product, $this->fk_company);
 				if(!empty($productNetPrice) && DiscountRule::calcNetPrice($this->documentDiscount->subprice, $this->documentDiscount->remise_percent) > $productNetPrice) {
 					$useDocumentReduction = false;
 				}
@@ -153,21 +152,6 @@ class DiscountRulesSearch
 				$this->result->fk_status = $this->documentDiscount->fk_status;
 				$this->result->date_object = $this->documentDiscount->date_object;
 				$this->result->date_object_human = dol_print_date($this->documentDiscount->date_object, '%d %b %Y');
-			}
-		}
-
-		// TODO : Manage customer default reduction
-		if(!empty($this->defaultCustomerReduction) && !empty($productNetPrice)){
-			if($useDocumentReduction){
-
-			}
-			elseif ($this->discount) {
-				if(!empty($productNetPrice) && DiscountRule::calcNetPrice($this->documentDiscount->subprice, $this->documentDiscount->remise_percent) > $productNetPrice) {
-					$useDocumentReduction = false;
-				}
-			}
-			else{
-				// use customer reduction
 			}
 		}
 
@@ -335,8 +319,8 @@ class DiscountRulesSearch
 		$this->fk_company = 0;
 
 		if (!empty($fk_company)) {
-			$this->societe = new Societe($this->db);
-			if ($this->societe->fetch($fk_company) > 0) {
+			$this->societe = DiscountRule::getSocieteCache($this->db);
+			if ($this->societe) {
 
 				$c = new Categorie($this->db);
 				$this->TCompanyCat = $c->containing($fk_company, Categorie::TYPE_CUSTOMER, 'id');
@@ -373,8 +357,8 @@ class DiscountRulesSearch
 		$this->fk_product = 0;
 
 		if (!empty($fk_product)) {
-			$this->product = new Product($this->db);
-			if ($this->product->fetch($fk_product) > 0) {
+			$this->product = DiscountRule::getProductCache($fk_product);
+			if ($this->product) {
 				$this->fk_product = $this->product->id;
 
 				// Get current categories
@@ -418,6 +402,9 @@ class DiscountRulesSearchResult
 	public $defaultCustomerReduction = 0;
 	public $discount = false;
 
+	/**
+	 * @var string $element discountrule|commande|propal|facture
+	 */
 	public $element;
 	public $id;
 	public $label;

@@ -997,7 +997,7 @@ class DiscountRule extends CommonObject
 	 * @param $fk_company
 	 * @return bool|float|mixed
 	 */
-	static function getProductSellPrice($fk_product, $fk_company){
+	static function getProductSellPrice($fk_product, $fk_company){ // TODO add Cache for result
 		global $mysoc, $conf;
 		$product = self::getProductCache($fk_product);
 		$societe = self::getSocieteCache($fk_company);
