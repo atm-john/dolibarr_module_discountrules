@@ -79,6 +79,7 @@ class Actionsdiscountrules
 
 
 		// TODO : Fonctionnalité non complète à terminer et a mettre dans une methode
+		// TODO : 13/01/2021 -> note pour plus tard : utiliser la class DiscountSearch($db);
 		if (!empty($conf->global->DISCOUNTRULES_ALLOW_APPLY_DISCOUNT_TO_ALL_LINES)
 				&& array_intersect(array('propalcard', 'ordercard', 'invoicecard'), $context)
 		) {
@@ -129,6 +130,9 @@ class Actionsdiscountrules
 					$TProductCat = $c->containing($line->fk_product, Categorie::TYPE_PRODUCT, 'id');
 					$TProductCat = DiscountRule::getAllConnectedCats($TProductCat);
 
+					// TODO : cette recherche de réduction est incomplète voir interface.php
+					// TODO : utiliser la class DiscountSearch($db);
+
 					// fetchByCrit = cherche la meilleure remise qui corresponde aux contraintes spécifiées
 					$res = $discountrule->fetchByCrit(
 							$line->qty,
@@ -142,7 +146,6 @@ class Actionsdiscountrules
 							$object->fk_project
 					);
 
-					// TODO : cette recherche de réduction est incomplète voir interface.php
 
 					if ($res > 0) {
 						$oldsubprice = $line->subprice;

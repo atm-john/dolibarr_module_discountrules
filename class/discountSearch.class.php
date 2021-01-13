@@ -169,7 +169,6 @@ class DiscountSearch
 		$this->launchSearchRule(); // will set $this->discountRule
 		$this->launchSearchDocumentsDiscount();  // will set $this->documentDiscount
 
-		$useDocumentReduction = false;
 		if (!empty($this->documentDiscount)) {
 			$useDocumentReduction = true;
 			if (!empty($this->discountRule)) {
@@ -315,6 +314,8 @@ class DiscountSearch
 	 */
 	private function launchSearchDocumentsDiscount()
 	{
+		global $conf;
+
 		if (empty($this->qty)) $this->qty = 1;
 
 		$this->documentDiscount = false;
@@ -362,9 +363,8 @@ class DiscountSearch
 		$this->fk_company = 0;
 
 		if (!empty($fk_company)) {
-			$this->societe = DiscountRule::getSocieteCache($this->db);
+			$this->societe = DiscountRule::getSocieteCache($fk_company);
 			if ($this->societe) {
-
 				$c = new Categorie($this->db);
 				$this->TCompanyCat = $c->containing($fk_company, Categorie::TYPE_CUSTOMER, 'id');
 
