@@ -10,9 +10,9 @@ require_once __DIR__ . '/../lib/discountrules.lib.php';
 /**
  * A class to search in discounts
  *
- * Class DiscountRuleSearch
+ * Class DiscountSearch
  */
-class DiscountRulesSearch
+class DiscountSearch
 {
 
 	/**
@@ -71,22 +71,24 @@ class DiscountRulesSearch
 	/**
 	 * @var Product $product
 	 */
-	protected $product;
+	public $product;
 
 	/**
 	 * @var Societe $societe
 	 */
-	protected $societe;
+	public $societe;
+
+
 
 	/**
-	 * @var DiscountRulesSearchResult $result
+	 * @var DiscountSearchResult $result
 	 */
 	public $result;
 
 	/**
-	 * @var DiscountRule|false $discount
+	 * @var DiscountRule|false $discountRule
 	 */
-	public $discount;
+	public $discountRule;
 
 	/**
 	 * @var object $documentDiscount
@@ -96,7 +98,7 @@ class DiscountRulesSearch
 	/**
 	 * @var double $defaultCustomerReduction
 	 */
-	protected $defaultCustomerReduction = 0;
+	public $defaultCustomerReduction = 0;
 
 
 	/**
@@ -108,37 +110,78 @@ class DiscountRulesSearch
 	{
 		$this->db = $db;
 
-		$this->result = new DiscountRulesSearchResult();
+		$this->result = new DiscountSearchResult();
+	}
+
+
+	/**
+	 * @param double   $qty
+	 * @param int   $fk_product
+	 * @param int   $fk_company
+	 * @param int   $fk_project
+	 * @param array $TProductCat
+	 * @param array $TCompanyCat
+	 * @param int   $fk_c_typent
+	 * @param int   $fk_country
+	 * @return DiscountSearchResult|int
+	 */
+	public function search($qty = 0, $fk_product = 0, $fk_company = 0, $fk_project = 0, $TProductCat = array(), $TCompanyCat = array(), $fk_c_typent = 0, $fk_country = 0){
+
+		$this->qty = $qty;
+		$this->fk_product = $fk_product;
+
+		if(!empty($fk_product)){
+			$res = $this->feedByProduct($fk_product);
+			if(!$res){ return -1; }
+		}
+		else{
+			// TODO : voir si je laisse là ou si on part du principe que si != de vide alors ça écrase les valeurs courantes mais si feedByProduct à fait des modifs
+			$this->TProductCat = $TProductCat;
+		}
+
+		if(!empty($fk_company)){
+			$res = $this->feedBySoc($fk_company);
+			if(!$res){ return -1; }
+		}
+		else{
+			// TODO : voir si je laisse là ou si on part du principe que si != de vide alors ça écrase les valeurs courantes mais si feedBySoc à fait des modifs
+			$this->TCompanyCat = $TCompanyCat;
+			$this->fk_country = $fk_country;
+			$this->fk_c_typent = $fk_c_typent;
+		}
+
+		$this->fk_project = $fk_project;
+
+		return $this->launchSearch();
 	}
 
 	/**
 	 * Launch search
-	 * @return DiscountRulesSearchResult
+	 * @return DiscountSearchResult
 	 */
 	private function launchSearch()
 	{
 		global $langs;
 
-		$this->result = new DiscountRulesSearchResult();
+		$this->result = new DiscountSearchResult();
 		$this->result->defaultCustomerReduction = $this->defaultCustomerReduction;
 
-		$this->launchSearchRule();
-		$this->launchSearchDocumentsDiscount();
-
+		$this->launchSearchRule(); // will set $this->discountRule
+		$this->launchSearchDocumentsDiscount();  // will set $this->documentDiscount
 
 		$useDocumentReduction = false;
 		if (!empty($this->documentDiscount)) {
 			$useDocumentReduction = true;
-			if (!empty($this->discount)) {
+			if (!empty($this->discountRule)) {
 				// Search product net price
-				$productNetPrice = $this->discount->getNetPrice($this->fk_product, $this->fk_company);
+				$productNetPrice = $this->discountRule->getNetPrice($this->fk_product, $this->fk_company);
 				if(!empty($productNetPrice) && DiscountRule::calcNetPrice($this->documentDiscount->subprice, $this->documentDiscount->remise_percent) > $productNetPrice) {
 					$useDocumentReduction = false;
 				}
 			}
 
 			if($useDocumentReduction) {
-				$this->discount = false;
+				$this->discountRule = false;
 
 				$this->result->result = true;
 				$this->result->element = $this->documentDiscount->element;
@@ -160,65 +203,65 @@ class DiscountRulesSearch
 		 * PREPARE RESULT
 		 */
 
-		if (!empty($this->discount)) {
+		if (!empty($this->discountRule)) {
 
 			$this->result->result = true;
 			$this->result->element = 'discountrule';
-			$this->result->id = $this->discount->id;
-			$this->result->label = $this->discount->label;
+			$this->result->id = $this->discountRule->id;
+			$this->result->label = $this->discountRule->label;
 
-			$this->result->subprice = $this->discount->getDiscountSellPrice($this->fk_product, $this->fk_company) - $this->discount->product_reduction_amount;
-			$this->result->product_price = $this->discount->product_price;
+			$this->result->subprice = $this->discountRule->getDiscountSellPrice($this->fk_product, $this->fk_company) - $this->discountRule->product_reduction_amount;
+			$this->result->product_price = $this->discountRule->product_price;
 			$this->result->standard_product_price = DiscountRule::getProductSellPrice($this->fk_product, $this->fk_company);
-			$this->result->product_reduction_amount = $this->discount->product_reduction_amount;
-			$this->result->reduction = $this->discount->reduction;
-			$this->result->entity = $this->discount->entity;
-			$this->result->from_quantity = $this->discount->from_quantity;
-			$this->result->fk_c_typent = $this->discount->fk_c_typent;
-			$this->result->fk_project = $this->discount->fk_project;
-			$this->result->priority_rank = $this->discount->priority_rank;
+			$this->result->product_reduction_amount = $this->discountRule->product_reduction_amount;
+			$this->result->reduction = $this->discountRule->reduction;
+			$this->result->entity = $this->discountRule->entity;
+			$this->result->from_quantity = $this->discountRule->from_quantity;
+			$this->result->fk_c_typent = $this->discountRule->fk_c_typent;
+			$this->result->fk_project = $this->discountRule->fk_project;
+			$this->result->priority_rank = $this->discountRule->priority_rank;
 
-			$this->result->typentlabel  = getTypeEntLabel($this->discount->fk_c_typent);
+			$this->result->typentlabel  = getTypeEntLabel($this->discountRule->fk_c_typent);
 			if(!$this->result->typentlabel ){ $this->result->typentlabel = ''; }
 
-			$this->result->fk_status = $this->discount->fk_status;
-			$this->result->fk_product = $this->discount->fk_product;
-			$this->result->date_creation = $this->discount->date_creation;
-			$this->result->match_on = $this->discount->lastFetchByCritResult;
-			if (!empty($this->discount->lastFetchByCritResult)) {
+			$this->result->fk_status = $this->discountRule->fk_status;
+			$this->result->fk_product = $this->discountRule->fk_product;
+			$this->result->date_creation = $this->discountRule->date_creation;
+			$this->result->match_on = $this->discountRule->lastFetchByCritResult;
+			if (!empty($this->discountRule->lastFetchByCritResult)) {
 				// Here there are matching parameters for product categories or company categories
 				// ADD humain readable informations from search result
 				$this->result->match_on->product_info = '';
-				if($this->product && !empty($this->discount->fk_product) && $this->product->id == $this->discount->fk_product ){
+				if($this->product && !empty($this->discountRule->fk_product) && $this->product->id == $this->discountRule->fk_product ){
 					$this->result->match_on->product_info = $this->product->ref . ' - '.$this->product->label;
 				}
 
 				$this->result->match_on->category_product = $langs->transnoentities('AllProductCategories');
-				if (!empty($this->discount->lastFetchByCritResult->fk_category_product)) {
+				if (!empty($this->discountRule->lastFetchByCritResult->fk_category_product)) {
 					$c = new Categorie($this->db);
-					$c->fetch($this->discount->lastFetchByCritResult->fk_category_product);
+					$c->fetch($this->discountRule->lastFetchByCritResult->fk_category_product);
 					$this->result->match_on->category_product = $c->label;
 				}
 
 				$this->result->match_on->category_company = $langs->transnoentities('AllCustomersCategories');
-				if (!empty($this->discount->lastFetchByCritResult->fk_category_company)) {
+				if (!empty($this->discountRule->lastFetchByCritResult->fk_category_company)) {
 					$c = new Categorie($this->db);
-					$c->fetch($this->discount->lastFetchByCritResult->fk_category_company);
+					$c->fetch($this->discountRule->lastFetchByCritResult->fk_category_company);
 					$this->result->match_on->category_company = $c->label;
 				}
 
 				$this->result->match_on->company = $langs->transnoentities('AllCustomers');
-				if (!empty($this->discount->lastFetchByCritResult->fk_company)) {
+				if (!empty($this->discountRule->lastFetchByCritResult->fk_company)) {
 					$s = new Societe($this->db);
-					$s->fetch($this->discount->lastFetchByCritResult->fk_company);
+					$s->fetch($this->discountRule->lastFetchByCritResult->fk_company);
 
 					$this->result->match_on->company = $s->name ? $s->name : $s->nom;
 					$this->result->match_on->company .= !empty($s->name_alias) ? ' (' . $s->name_alias . ')' : '';
 				}
 
-				if (!empty($this->discount->lastFetchByCritResult->fk_project)) {
+				if (!empty($this->discountRule->lastFetchByCritResult->fk_project)) {
 					$p = new Project($this->db);
-					$p->fetch($this->discount->lastFetchByCritResult->fk_project);
+					$p->fetch($this->discountRule->lastFetchByCritResult->fk_project);
 					$this->result->match_on->project = $p->ref . ' : '.$p->title;
 				}
 			}
@@ -255,14 +298,14 @@ class DiscountRulesSearch
 		$res = $discountRes->fetchByCrit($this->qty, $this->fk_product, $TAllProductCat, $TCompanyCat, $this->fk_company,  time(), $this->fk_country, $this->fk_c_typent, $this->fk_project);
 		$this->debugLog($discountRes->error);
 		if ($res > 0) {
-			$this->discount = $discountRes;
+			$this->discountRule = $discountRes;
 		}
 		else{
-			$this->discount = false;
+			$this->discountRule = false;
 			$this->result->log[] = $discountRes->error;
 		}
 
-		return $this->discount;
+		return $this->discountRule;
 	}
 
 
@@ -393,7 +436,7 @@ class DiscountRulesSearch
  *
  * Class DiscountRuleSearch
  */
-class DiscountRulesSearchResult
+class DiscountSearchResult
 {
 	public $result = false;
 	public $log = array();
@@ -426,5 +469,9 @@ class DiscountRulesSearchResult
 	public $typentlabel;
 	public $fk_product;
 	public $date_creation;
+
+	/**
+	 * @var object $match_on
+	 */
 	public $match_on;
 }
